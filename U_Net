@@ -1,0 +1,87 @@
+from tqdm import tqdm
+import random
+import numpy as np
+from skimage.io import imread, imshow
+from skimage.transform import resize
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow import keras
+import cv2
+#import countour_detection
+#from PIL import Image
+
+inputs = tf.keras.layers.Input((IMG_HEIGHT, IMG_WIDTH, 1))
+s = tf.keras.layers.Lambda(lambda x: x / 255)(inputs)
+
+#Contraction path
+c1 = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(s)
+c1 = tf.keras.layers.Dropout(0.1)(c1)
+c1 = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(c1)
+p1 = tf.keras.layers.MaxPooling2D((2, 2))(c1)
+
+c2 = tf.keras.layers.Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(p1)
+c2 = tf.keras.layers.Dropout(0.1)(c2)
+c2 = tf.keras.layers.Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(c2)
+p2 = tf.keras.layers.MaxPooling2D((2, 2))(c2)
+ 
+c3 = tf.keras.layers.Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(p2)
+c3 = tf.keras.layers.Dropout(0.2)(c3)
+c3 = tf.keras.layers.Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(c3)
+p3 = tf.keras.layers.MaxPooling2D((2, 2))(c3)
+ 
+c4 = tf.keras.layers.Conv2D(512, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(p3)
+c4 = tf.keras.layers.Dropout(0.2)(c4)
+c4 = tf.keras.layers.Conv2D(512, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(c4)
+p4 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(c4)
+ 
+c5 = tf.keras.layers.Conv2D(1024, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(p4)
+c5 = tf.keras.layers.Dropout(0.3)(c5)
+c5 = tf.keras.layers.Conv2D(1024, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(c5)
+
+#Expansive path 
+u6 = tf.keras.layers.Conv2DTranspose(512, (2, 2), strides=(2, 2), padding='valid')(c5)
+c4 = tf.image.resize(c4, (56, 56))
+u6 = tf.keras.layers.concatenate([u6, c4])
+c6 = tf.keras.layers.Conv2D(512, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(u6)
+c6 = tf.keras.layers.Dropout(0.2)(c6)
+c6 = tf.keras.layers.Conv2D(512, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(c6)
+ 
+u7 = tf.keras.layers.Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='valid')(c6)
+c3 = tf.image.resize(c3, (104, 104))
+u7 = tf.keras.layers.concatenate([u7, c3])
+c7 = tf.keras.layers.Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(u7)
+c7 = tf.keras.layers.Dropout(0.2)(c7)
+c7 = tf.keras.layers.Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(c7)
+ 
+u8 = tf.keras.layers.Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='valid')(c7)
+c2 = tf.image.resize(c2, (200, 200))
+u8 = tf.keras.layers.concatenate([u8, c2])
+c8 = tf.keras.layers.Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(u8)
+c8 = tf.keras.layers.Dropout(0.1)(c8)
+c8 = tf.keras.layers.Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(c8)
+ 
+u9 = tf.keras.layers.Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='valid')(c8)
+c1 = tf.image.resize(c1, (392, 392))
+u9 = tf.keras.layers.concatenate([u9, c1])
+c9 = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(u9)
+c9 = tf.keras.layers.Dropout(0.1)(c9)
+c9 = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='valid')(c9)
+ 
+outputs = tf.keras.layers.Conv2D(1, (1, 1), activation='sigmoid')(c9)
+ 
+model = tf.keras.Model(inputs=[inputs], outputs=[outputs])
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model.summary()
+
+
+results = model.fit(X_train, Y_train, validation_split=0.2, epochs=3, batch_size= 10)
+
+# serialize model to JSON
+model_json = model.to_json()
+with open("model.json", "w") as json_file:
+    json_file.write(model_json)
+# serialize weights to HDF5
+model.save_weights("model(2).h5")
+print("Saved model to disk")
+
+ 
